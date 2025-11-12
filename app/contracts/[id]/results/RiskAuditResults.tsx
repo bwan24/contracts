@@ -48,7 +48,7 @@ export default function RiskAuditResults({}: RiskAuditResultsProps) {
         level: "high",
         riskType: "commercial",
         description: "预付款比例过高（35%），超过行业标准（通常为20-30%）",
-        location: "某风电开发有限公司",
+        location: "卖方可根据买方需要开放风电机组信号供买方选择接入",
         referenceClause: "建议将预付款比例调整为20-30%之间",
         assessment: "预付款比例过高可能导致我方资金压力增大，建议协商降低",
         suggestion: "建议将预付款比例调整为20%，并增加进度验收节点"

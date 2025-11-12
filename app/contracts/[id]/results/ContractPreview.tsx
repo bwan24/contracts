@@ -4,10 +4,51 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ExternalLink } from 'lucide-react';
 import { useState, useEffect, useRef } from "react"
-import { mockContractAnalysis, mockContracts } from "@/lib/mock-data"
 import { MarkdownViewer, type MarkdownViewerRef } from "@/components/markdown-viewer"
-// @ts-ignore
-import FileViewer from 'react-file-viewer';
+import dynamic from 'next/dynamic';
+// import type { FileViewerProps } from 'react-file-viewer';
+
+// 动态导入FileViewer，禁用SSR以避免window is not defined错误
+const FileViewer = dynamic<any>(() => import('react-file-viewer'), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full flex items-center justify-center">
+      <p className="text-sm text-muted-foreground">加载查看器组件...</p>
+    </div>
+  )
+});
+
+// 合同数据类型
+interface Contract {
+  id: string;
+  name: string;
+  type: string;
+  standard: string;
+  uploadDate: string;
+  fileUrl: string;
+  fileSize: string;
+  status: string;
+  riskCount: any;
+  fileType?: string;
+}
+
+// 从API获取合同详情
+const fetchContractDetail = async (contractId: string): Promise<Contract | null> => {
+  try {
+    const response = await fetch(`/api/contracts/${contractId}`);
+    const data = await response.json();
+    
+    if (data.success) {
+      return data.data as Contract;
+    } else {
+      console.error('获取合同详情失败:', data.message);
+      return null;
+    }
+  } catch (error) {
+    console.error('获取合同详情时发生错误:', error);
+    return null;
+  }
+};
 
 interface ContractPreviewProps {
   contractId: string
@@ -25,122 +66,69 @@ export default function ContractPreview({ contractId, markdownViewerRef }: Contr
   
   // 获取合同信息并设置预览文件
   useEffect(() => {
-    console.log('开始加载合同预览，合同ID:', contractId);
-    // 直接从mock数据中查找合同
-    let foundContract = mockContracts.find(c => c.id === contractId);
-    
-    // 如果没有找到合同，创建一个测试用的默认合同，优先使用public/contracts目录下的实际文件
-    if (!foundContract) {
-      console.log('未找到合同，使用测试合同数据');
-      // 检查是否存在11.docx或12.docx文件
-      const testFiles = ['12.docx', '11.docx'];
-      let testFileName = testFiles[0]; // 默认使用12.docx
-      
-      // 创建一个测试合同，文件路径指向public/contracts目录下的实际文件
-      foundContract = {
-        id: contractId,
-        name: testFileName,
-        type: 'wind-turbine',
-        standard: 'standard',
-        uploadDate: new Date().toISOString(),
-        fileUrl: `/contracts/${encodeURIComponent(testFileName)}`,
-        fileSize: '1.2 MB',
-        status: 'completed',
-        riskCount: { high: 1, medium: 2, low: 3 }
-      };
-      console.log('测试合同路径:', foundContract.fileUrl);
-      console.log('对应实际文件路径:', `public/contracts/${testFileName}`);
-    }
-    
-    if (foundContract) {
-      console.log('合同信息已设置:', { id: foundContract.id, name: foundContract.name, fileUrl: foundContract.fileUrl });
-      setContract(foundContract);
-      setFileName(foundContract.name);
+    const loadContractData = async () => {
+      console.log('开始加载合同预览，合同ID:', contractId);
+      setIsLoading(true);
       setError(null);
       
-      // 根据文件类型设置不同的处理逻辑
-      if (foundContract.name.endsWith('.docx')) {
-        setIsLoading(true);
-        // 确保使用正确的public/contracts路径
-        const docxUrl = `/contracts/${encodeURIComponent(foundContract.name)}`;
-        console.log('尝试加载Word文档:', docxUrl);
-        console.log('实际文件路径应该是: public/contracts/' + foundContract.name);
+      try {
+        // 从API获取合同详情
+        const contractData = await fetchContractDetail(contractId);
         
-        setFileUrl(docxUrl);
-        setIsLoading(false);
-      } else if (foundContract.name.endsWith('.pdf')) {
-          console.log('检测到PDF文件，使用iframe预览:', foundContract.name);
-          setIsLoading(true);
-          // 如果是PDF文件，使用更安全的路径处理
-          // 直接使用合同名称作为文件名
-          const pdfFileName = foundContract.name;
-          // 尝试多个可能的PDF路径，优先使用public/contracts目录
-          const possibleUrls = [
-            `/contracts/${encodeURIComponent(pdfFileName)}`,  // public/contracts目录
-            `/pdfs/${pdfFileName}`,
-            `/static/contracts/${pdfFileName}`
-          ];
-          console.log('尝试PDF路径列表:', possibleUrls);
-          console.log('首选路径对应文件: public/contracts/' + pdfFileName);
-          
-          // 尝试加载第一个可用的PDF
-          const tryLoadPdf = async () => {
-            for (const url of possibleUrls) {
-              try {
-                const response = await fetch(url, { method: 'HEAD' });
-                if (response.ok) {
-                  setFileUrl(url);
-                  return;
-                }
-              } catch (err) {
-                console.log(`PDF路径不可用: ${url}`);
-              }
-            }
-            // 如果所有路径都失败，使用在线PDF示例作为备用
-            setFileUrl('https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf');
-            console.warn('使用在线示例PDF作为替代');
-          };
-          
-          tryLoadPdf().finally(() => {
-            setIsLoading(false);
+        if (contractData) {
+          console.log('合同信息已从数据库获取:', {
+            id: contractData.id,
+            name: contractData.name,
+            uploadDate: contractData.uploadDate,
+            fileSize: contractData.fileSize
           });
+          
+          setContract(contractData);
+          setFileName(contractData.name);
+          
+          // 使用新的API端点获取文件内容
+          const fileApiUrl = `/api/contracts/${contractId}/file`;
+          console.log('使用文件API端点:', fileApiUrl);
+          setFileUrl(fileApiUrl);
         } else {
-          // 非PDF和非Word文件，使用在线示例PDF作为通用预览
-          setIsLoading(true);
-          setFileUrl('https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf');
-          setIsLoading(false);
+          console.warn(`未找到ID为${contractId}的合同`);
+          setFileName('未找到合同');
+          setError('未找到合同信息');
         }
-    } else {
-      console.warn(`未找到ID为${contractId}的合同`);
-      // 设置默认值，防止界面空白
-      setFileName('未找到合同');
-      setError('未找到合同信息');
-    }
+      } catch (err) {
+        console.error('加载合同数据失败:', err);
+        setError('加载合同数据失败');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadContractData();
   }, [contractId]);
   
-  // 从public/jsons/contents文件夹加载markdown内容
+  // 从数据库加载markdown内容
   useEffect(() => {
-    if (fileName) {
+    if (contractId) {
       const loadMarkdownContent = async () => {
         setIsLoadingMarkdown(true);
         try {
-          // 构建JSON文件路径，使用合同名称作为文件名
-          const jsonFileName = `${fileName}.json`;
-          const jsonFilePath = `/jsons/contents/${encodeURIComponent(jsonFileName)}`;
-          console.log('尝试加载markdown内容:', jsonFilePath);
-          
-          const response = await fetch(jsonFilePath);
+          // 调用API获取合同详情，包括Markdown内容
+          const response = await fetch(`/api/contracts/${contractId}`);
           if (response.ok) {
-            const data = await response.json();
-            setMarkdownContent(data.content || "未找到Markdown内容");
-            console.log('成功加载markdown内容');
+            const result = await response.json();
+            if (result.success && result.data && result.data.markdown_content) {
+              setMarkdownContent(result.data.markdown_content);
+              console.log('成功从数据库加载markdown内容');
+            } else {
+              setMarkdownContent("# 未找到Markdown内容\n\n该合同可能尚未转换为Markdown格式。");
+            }
           } else {
-            console.warn(`未找到对应的markdown文件: ${jsonFilePath}`);
-            setMarkdownContent(`# 未找到对应的Markdown文件\n\n文件名: ${jsonFileName}`);
+            console.warn(`获取合同详情失败: ${contractId}`);
+            setMarkdownContent(`# 获取合同详情失败\n\n无法从服务器获取Markdown内容。`);
           }
         } catch (err) {
           console.error('加载markdown内容失败:', err);
-          setMarkdownContent("加载Markdown内容失败，请检查文件路径是否正确");
+          setMarkdownContent("加载Markdown内容失败，请检查网络连接或服务器状态。");
         } finally {
           setIsLoadingMarkdown(false);
         }
@@ -148,7 +136,7 @@ export default function ContractPreview({ contractId, markdownViewerRef }: Contr
       
       loadMarkdownContent();
     }
-  }, [fileName]);
+  }, [contractId]);
   
   // 检查文件是否为Word文件
   const isWordFile = fileName?.endsWith('.docx') || false;
@@ -162,21 +150,33 @@ export default function ContractPreview({ contractId, markdownViewerRef }: Contr
           <div>
            <h2 className="text-xl font-semibold">{isWordFile ? 'Word预览' : isPdfFile ? 'PDF预览' : '文件预览'}</h2>
            <p className="text-sm text-muted-foreground">{fileName || '未知文件'}</p>
+           {contract && (
+             <div className="mt-1 text-xs text-muted-foreground">
+               <span>上传时间: {new Date(contract.uploadDate).toLocaleString()}</span>
+               <span className="mx-2">•</span>
+               <span>文件大小: {contract.fileSize}</span>
+             </div>
+           )}
           </div>
          
           <div className="flex items-center gap-3">
             <Button variant="outline" size="sm" className="gap-1 text-xs h-7" onClick={() => {
             console.log('打开文件:', fileUrl);
-            window.open(fileUrl, '_blank');
+            if (typeof window !== 'undefined') {
+              window.open(fileUrl, '_blank');
+            }
              }}>
-              <ExternalLink className="w-4 h-4" />
-              新窗口打开
-            </Button>
+               <ExternalLink className="w-4 h-4" />
+               新窗口打开
+             </Button>
             <Button variant="ghost" size="sm" className="gap-1 text-xs h-7" onClick={() => {
-              const link = document.createElement('a');
-              link.href = fileUrl;
-              link.click();
-          }}>
+               if (typeof document !== 'undefined') {
+                 const link = document.createElement('a');
+                 link.href = fileUrl;
+                 link.download = fileName || 'contract.pdf';
+                 link.click();
+               }
+             }}>
               下载
            </Button>
            </div>
@@ -212,10 +212,10 @@ export default function ContractPreview({ contractId, markdownViewerRef }: Contr
                 </div>
                 <p className="text-sm text-red-500 mb-4">{error}</p>
                 <Button variant="default" size="sm" onClick={() => {
-                  const targetUrl = isWordFile ? `/contracts/${encodeURIComponent(fileName || '')}` : (fileUrl || '');
-              console.log('在新窗口打开:', targetUrl);
-                  console.log('对应文件路径:', isWordFile ? 'public/contracts/' + fileName : '');
-                  window.open(targetUrl, '_blank');
+                  console.log('在新窗口打开:', fileUrl);
+                  if (typeof window !== 'undefined') {
+                    window.open(fileUrl, '_blank');
+                  }
                 }}>
                   <ExternalLink className="w-4 h-4 mr-2" />
                   在新窗口中打开
@@ -228,7 +228,7 @@ export default function ContractPreview({ contractId, markdownViewerRef }: Contr
                 {isWordFile ? (
                   // 使用react-file-viewer预览Word文件
                   <div className="w-full h-full overflow-y-auto bg-white border-t">
-                    {fileUrl && (
+                    {fileUrl && typeof FileViewer !== 'undefined' && (
                       <FileViewer
                         fileType="docx"
                         filePath={fileUrl}
@@ -243,7 +243,9 @@ export default function ContractPreview({ contractId, markdownViewerRef }: Contr
                             </div>
                             <p className="text-sm text-red-500 mb-4">无法预览Word文档</p>
                             <Button variant="default" size="sm" onClick={() => {
-                              window.open(fileUrl, '_blank');
+                              if (typeof window !== 'undefined') {
+                                window.open(fileUrl, '_blank');
+                              }
                             }}>
                               <ExternalLink className="w-4 h-4 mr-2" />
                               在新窗口中打开
