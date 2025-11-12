@@ -1,57 +1,21 @@
 "use client"
 
-import { use, useState, useEffect } from "react"
+import { use } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { ArrowLeft, FileText, Calendar, Tag, AlertCircle, Loader2 } from "lucide-react"
+import { ArrowLeft, FileText, Calendar, Tag, AlertCircle } from "lucide-react"
 import Link from "next/link"
-import { MarkdownViewer } from "@/components/markdown-viewer"
+import { mockContracts, mockRiskPoints } from "@/lib/mock-data"
 import { RiskExportDialog } from "@/components/risk-export-dialog"
 
 export default function ContractDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
-  const [contract, setContract] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const contract = mockContracts.find((c) => c.id === id)
+  const contractRisks = mockRiskPoints.filter((r) => r.contractId === id)
 
-  useEffect(() => {
-    const fetchContract = async () => {
-      try {
-        setLoading(true)
-        const response = await fetch(`/api/contracts/${id}`)
-        const data = await response.json()
-        
-        if (data.success) {
-          setContract(data.data)
-          console.log('hello', data.data)
-        } else {
-          setError(data.message || '获取合同详情失败')
-        }
-      } catch (err) {
-        setError('网络错误，请稍后重试')
-        console.error('获取合同详情失败:', err)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchContract()
-  }, [id])
-
-  if (loading) {
-    return (
-      <div className="flex h-full items-center justify-center p-8">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          <p className="text-muted-foreground">正在加载合同详情...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (error || !contract) {
+  if (!contract) {
     return (
       <div className="flex h-full items-center justify-center p-8">
         <div className="text-center">
@@ -79,8 +43,8 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
           <h1 className="text-3xl font-bold tracking-tight text-foreground">{contract.name}</h1>
           <p className="mt-2 text-muted-foreground">合同详情与内容解析</p>
         </div>
-        {contract.status === "completed" && contract.riskCount && (contract.riskCount.high || contract.riskCount.medium || contract.riskCount.low) > 0 && (
-          <RiskExportDialog contract={contract} risks={[]} />
+        {contract.status === "completed" && contractRisks.length > 0 && (
+          <RiskExportDialog contract={contract} risks={contractRisks} />
         )}
       </div>
 
@@ -167,18 +131,27 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
 
       <Card className="p-6">
         <h2 className="mb-4 text-lg font-semibold text-foreground">原始合同内容</h2>
-        <div className="rounded-lg border bg-muted/30 h-[500px]">
-          {contract.markdown_content && contract.markdown_content.trim() !== '' ? (
-            <MarkdownViewer content={contract.markdown_content} className="h-full" />
-          ) : (
-            <div className="flex h-full items-center justify-center p-6">
-              <div className="text-center">
-                <p className="text-muted-foreground mb-2">暂无解析后的合同内容</p>
-                <p className="text-sm text-muted-foreground">合同ID: {id}</p>
-                <p className="text-sm text-muted-foreground">API响应: {JSON.stringify({ hasMarkdown: !!contract.markdown_content, type: typeof contract.markdown_content })}</p>
-              </div>
+        <div className="rounded-lg border bg-muted/30 p-6">
+          <div className="prose prose-sm max-w-none">
+            <p className="text-muted-foreground">
+              合同内容将在此处显示。系统会自动解析Word文档内容，提取关键条款信息。
+            </p>
+            <div className="mt-4 space-y-2 text-sm">
+              <p className="font-medium text-foreground">示例条款内容：</p>
+              <p className="text-foreground">
+                第一条 合同双方
+                <br />
+                甲方：远景能源有限公司
+                <br />
+                乙方：XX风电设备制造有限公司
+              </p>
+              <p className="text-foreground">
+                第二条 合同标的
+                <br />
+                乙方向甲方提供风力发电机组及相关配套设备...
+              </p>
             </div>
-          )}
+          </div>
         </div>
       </Card>
 

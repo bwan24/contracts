@@ -48,7 +48,7 @@
 
 ## 项目结构
 
-```
+\`\`\`
 ├── app/                  # Next.js App Router
 │   ├── contracts/        # 合同处理页面
 │   ├── risk-analysis/    # 风险审核页面
@@ -69,7 +69,7 @@
 ├── hooks/                # 自定义Hooks
 ├── public/               # 静态资源
 └── styles/               # 全局样式
-```
+\`\`\`
 
 ## 安装与运行
 
@@ -80,13 +80,13 @@
 ### 安装步骤
 
 1. 克隆项目
-```bash
+\`\`\`bash
 git clone <项目仓库URL>
 cd <项目目录>
-```
+\`\`\`
 
 2. 安装依赖
-```bash
+\`\`\`bash
 # 使用npm
 npm install
 
@@ -95,34 +95,34 @@ pnpm install
 
 # 或使用yarn
 yarn install
-```
+\`\`\`
 
 3. 开发环境运行
-```bash
+\`\`\`bash
 npm run dev
 # 或
 pnpm dev
 # 或
 yarn dev
-```
+\`\`\`
 
 4. 构建生产版本
-```bash
+\`\`\`bash
 npm run build
 # 或
 pnpm build
 # 或
 yarn build
-```
+\`\`\`
 
 5. 运行生产版本
-```bash
+\`\`\`bash
 npm start
 # 或
 pnpm start
 # 或
 yarn start
-```
+\`\`\`
 
 ## 系统使用指南
 
