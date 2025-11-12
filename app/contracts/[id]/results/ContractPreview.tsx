@@ -138,10 +138,15 @@ export default function ContractPreview({ contractId, markdownViewerRef }: Contr
     }
   }, [contractId]);
   
-  // 检查文件是否为Word文件
-  const isWordFile = fileName?.endsWith('.docx') || false;
-  // 检查文件是否为PDF文件
-  const isPdfFile = fileName?.endsWith('.pdf') || false;
+  // 更健壮的文件类型检查
+  const getFileExtension = (name?: string) => {
+    if (!name) return '';
+    return name.split('.').pop()?.toLowerCase() || '';
+  };
+  
+  const fileExtension = getFileExtension(fileName);
+  const isWordFile = ['docx', 'doc'].includes(fileExtension);
+  const isPdfFile = fileExtension === 'pdf';
   
   return (
     <div className="flex gap-4">
@@ -230,7 +235,7 @@ export default function ContractPreview({ contractId, markdownViewerRef }: Contr
                   <div className="w-full h-full overflow-y-auto bg-white border-t">
                     {fileUrl && typeof FileViewer !== 'undefined' && (
                       <FileViewer
-                        fileType="docx"
+                        fileType={fileExtension}
                         filePath={fileUrl}
                         errorComponent={
                           <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center">
@@ -241,7 +246,7 @@ export default function ContractPreview({ contractId, markdownViewerRef }: Contr
                                 <line x1="12" y1="16" x2="12.01" y2="16" />
                               </svg>
                             </div>
-                            <p className="text-sm text-red-500 mb-4">无法预览Word文档</p>
+                            <p className="text-sm text-red-500 mb-4">无法预览文档</p>
                             <Button variant="default" size="sm" onClick={() => {
                               if (typeof window !== 'undefined') {
                                 window.open(fileUrl, '_blank');
@@ -258,31 +263,22 @@ export default function ContractPreview({ contractId, markdownViewerRef }: Contr
                 ) : (
                   // PDF文件预览 - 增强版
                   <div className="w-full h-full bg-gray-50 relative">
-                    {isLoading && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10">
-                        <div className="flex flex-col items-center">
-                          <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-2"></div>
-                          <span className="text-sm text-gray-600">正在加载PDF文件...</span>
-                        </div>
-                      </div>
-                    )}
                     {fileUrl && fileUrl.trim() ? (
                       <iframe 
                         src={fileUrl} 
-                        className={`w-full h-full border-0 transition-opacity duration-300 ${isLoading ? 'opacity-0' : 'opacity-100'}`} 
-                        title={`${fileName} 预览`}
+                        className="w-full h-full border-0" 
+                        title={`${fileName || '文档'} 预览`}
                         sandbox="allow-same-origin allow-scripts"
-                        onLoad={() => {
-                          if (!isLoading) return;
-                          setIsLoading(false);
-                        }}
                         onError={(e) => {
-                          setIsLoading(false);
-                          setError('PDF加载失败，已尝试备用链接');
-                          console.error('PDF iframe加载错误:', e);
+                          setError('文档加载失败');
+                          console.error('文档iframe加载错误:', e);
                         }}
                       />
-                    ) : null}
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <p className="text-sm text-muted-foreground">文件链接不可用</p>
+                      </div>
+                    )}
                     {error && (
                       <div className="absolute bottom-4 left-4 bg-red-50 text-red-600 px-3 py-2 rounded-md text-sm border border-red-200 flex items-center">
                         <span className="mr-2">⚠️</span>
